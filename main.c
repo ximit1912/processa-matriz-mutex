@@ -67,7 +67,7 @@ FILEIRA 3 - MAQUINA 6
 int matriz[1000][1000];
 int vetorSomatorias[1000];
 
-int m, n, k;
+int m, n, k, auxLinha;
 
 int parcela,
     resto;
@@ -122,18 +122,21 @@ void *funcao_da_thread(void *ptr)
 {
     tPack *pack = (tPack *) ptr;
 
-    int processado=0, aux, i, j;
+    int aux, i, j;
 
     for(i=(pack->id); i<m-1; i=i+k)
     {
-        printf("\n**thread %d estah fazendo a linha %d**", pack->id, i);
+        // threads esperam enquanto nao chega sua vez
+        while(auxLinha != i);
 
         pthread_mutex_lock(&mutex);
+
+        printf("\n**thread %d comecou a fazer a linha %d**", pack->id, i);
+
         for(j=1; j<n-1; j++)
         {
             matriz[i][j]=matriz[i-1][j]+matriz[i+1][j]+matriz[i][j-1]+matriz[i][j+1] + matriz[i-1][j-1]+matriz[i+1][j+1]+matriz[i-1][j+1]+matriz[i+1][j-1]; 
         }
-        pthread_mutex_unlock(&mutex);
 
         // faz as somatorias
         for(j=0; j<n-1; j++)
@@ -141,9 +144,21 @@ void *funcao_da_thread(void *ptr)
             vetorSomatorias[i-1]+=matriz[i][j];
         }
 
-        // zera a linha
+        printf("\n**thread %d terminou de fazer a linha %d**", pack->id, i);
+        
+        pthread_mutex_unlock(&mutex);
+
+        printf("\n**thread %d comecou a zerar a linha %d**", pack->id, i);
+
+        // libera para a proxima thread sair do while infinito, e já começar a fazer o processamento da sua no mesmo momento que a thread atual desbloquear o mutex
+        auxLinha++;
+
+        while(auxLinha <= i + 1 && auxLinha != 9);
+
+        // então, zera a linha
         for(j=1; j<n-1; j++)
         {
+            printf("\n##thread %d zerou matriz[%d][%d] ##", pack->id, i, j);
             matriz[i][j]=0;
         }
     }
@@ -177,6 +192,8 @@ void main(void)
         vetorSomatorias[i]=0;
     }
 
+    auxLinha = 1;
+
     for(i=0; i<k; i++)
     {
         pack[i].id=i+1;
@@ -206,4 +223,3 @@ void main(void)
 
     printf("\n\nSomatoria total: %d\n", somatoriaTotal);
 }
-
